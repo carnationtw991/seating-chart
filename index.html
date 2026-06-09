@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教室座位表 2.0 - 鄭念慈老師設計</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- 引入 Babel 用於在瀏覽器中編譯 JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 引入 Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+        /* 自訂可愛滾動條 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* 定義 Lucide 圖示元件轉換 (模擬 react-lucide) */
+        .lucide-icon { display: inline-flex; align-items: center; justify-content: center; }
+        .lucide-icon svg { width: 1em; height: 1em; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect, createElement } = React;
+
+        // --- Lucide PascalCase 至 kebab-case 轉換對照表 ---
+        const iconMap = {
+            Monitor: 'monitor',
+            Users: 'users',
+            Move: 'move',
+            Plus: 'plus',
+            Trash2: 'trash-2',
+            LayoutGrid: 'layout-grid',
+            LayoutTemplate: 'layout-template',
+            Box: 'box',
+            Magnet: 'magnet',
+            Download: 'download',
+            Upload: 'upload',
+            Columns: 'columns',
+            Smile: 'smile',
+            Shuffle: 'shuffle',
+            GraduationCap: 'graduation-cap',
+            Ban: 'ban',
+            Settings: 'settings',
+            X: 'x',
+            Check: 'check',
+            RotateCcw: 'rotate-ccw',
+            FileText: 'file-text',
+            Eraser: 'eraser'
+        };
+
+        // --- Lucide Icons Wrapper 模擬 ---
+        // 在瀏覽器無 bundler 環境下，我們用一個簡單的元件來產生 Lucide SVG
+        const Icon = ({ name, size = 24, className = "", strokeWidth = 2, title }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    iconRef.current.innerHTML = '';
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    
+                    // 轉換為正確的 kebab-case 鍵值
+                    const kebabName = iconMap[name] || name.toLowerCase();
+                    const iconData = window.lucide.icons[kebabName];
+                    
+                    if (iconData) {
+                        svg.setAttribute('viewBox', '0 0 24 24');
+                        svg.setAttribute('width', size);
+                        svg.setAttribute('height', size);
+                        svg.setAttribute('stroke', 'currentColor');
+                        svg.setAttribute('stroke-width', strokeWidth);
+                        svg.setAttribute('fill', 'none');
+                        svg.setAttribute('stroke-linecap', 'round');
+                        svg.setAttribute('stroke-linejoin', 'round');
+                        if (className) svg.setAttribute('class', className);
+                        
+                        // 修正：不使用陣列解構 (tag, attrs)，避免 Babel Standalone 在特定瀏覽器下產生不支援的迭代器程式碼
+                        if (iconData[2]) {
+                            iconData[2].forEach((child) => {
+                                if (child && child.length >= 2) {
+                                    const tag = child[0];
+                                    const attrs = child[1];
+                                    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+                                    if (attrs) {
+                                        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+                                    }
+                                    svg.appendChild(el);
+                                }
+                            });
+                        }
+                        iconRef.current.appendChild(svg);
+                    } else {
+                        console.warn(`Icon ${name} (${kebabName}) not found`);
+                    }
+                }
+            }, [name, size, strokeWidth, className]);
+
+            return <span ref={iconRef} className={`lucide-icon ${className}`} title={title} style={{ width: size, height: size, display: 'inline-flex' }}></span>;
+        };
+
+        // 為所有用到的 Icons 建立快捷元件
+        const Monitor = (p) => <Icon name="Monitor" {...p} />;
+        const Users = (p) => <Icon name="Users" {...p} />;
+        const Move = (p) => <Icon name="Move" {...p} />;
+        const Plus = (p) => <Icon name="Plus" {...p} />;
+        const Trash2 = (p) => <Icon name="Trash2" {...p} />;
+        const LayoutGrid = (p) => <Icon name="LayoutGrid" {...p} />;
+        const LayoutTemplate = (p) => <Icon name="LayoutTemplate" {...p} />;
+        const Box = (p) => <Icon name="Box" {...p} />;
+        const Magnet = (p) => <Icon name="Magnet" {...p} />;
+        const Download = (p) => <Icon name="Download" {...p} />;
+        const Upload = (p) => <Icon name="Upload" {...p} />;
+        const Columns = (p) => <Icon name="Columns" {...p} />;
+        const Smile = (p) => <Icon name="Smile" {...p} />;
+        const Shuffle = (p) => <Icon name="Shuffle" {...p} />;
+        const GraduationCap = (p) => <Icon name="GraduationCap" {...p} />;
+        const Ban = (p) => <Icon name="Ban" {...p} />;
+        const Settings = (p) => <Icon name="Settings" {...p} />;
+        const X = (p) => <Icon name="X" {...p} />;
+        const Check = (p) => <Icon name="Check" {...p} />;
+        const RotateCcw = (p) => <Icon name="RotateCcw" {...p} />;
+        const FileText = (p) => <Icon name="FileText" {...p} />;
+        const Eraser = (p) => <Icon name="Eraser" {...p} />;
+
+        // ==========================================
+        // 核心應用程式碼開始 (同先前的 ClassroomSeatingApp)
+        // ==========================================
+
+        const ToolButton = ({ type, label, subLabel, colorClass, count, description, activeTool, onClick }) => (
+          <button
+            onClick={() => onClick(type)}
+            className={`relative flex flex-col items-start p-3 rounded-xl transition-all duration-200 border-2 w-full text-left group
+              ${activeTool === type ? `${colorClass} ring-2 ring-offset-2 ring-blue-100 scale-[1.02] shadow-md` : 'bg-white border-slate-100 hover:bg-slate-50 text-slate-500'}
+            `}
+          >
+            <div className="flex justify-between w-full items-center mb-1">
+                <span className={`text-lg font-black ${activeTool === type ? 'text-white' : 'text-slate-700'}`}>
+                  {type} 咖 <span className="text-xs font-normal opacity-80">({subLabel})</span>
+                </span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTool === type ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                  {count}人
+                </span>
+            </div>
+            
+            <p className={`text-[10px] leading-tight ${activeTool === type ? 'text-white/90' : 'text-slate-400'}`}>
+              {description}
+            </p>
+
+            {activeTool === type && (
+              <div className="absolute -top-2 -right-2 bg-white text-blue-600 rounded-full p-0.5 shadow-sm border border-blue-100">
+                  <Check size={12} strokeWidth={4} />
+              </div>
+            )}
+          </button>
+        );
+
+        const NameListModal = ({ isOpen, onClose, onApply, initialNameList }) => {
+          const [text, setText] = useState("");
+
+          useEffect(() => {
+            if (isOpen) {
+              setText(initialNameList.join('\n'));
+            }
+          }, [isOpen, initialNameList]);
+
+          if (!isOpen) return null;
+
+          const handleApply = () => {
+            const names = text.split(/[\n,，、\s]+/).map(n => n.trim()).filter(n => n !== "");
+            onApply(names);
+          };
+
+          const handleClear = () => {
+            setText("");
+            onApply([]);
+          };
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border-4 border-blue-100 animate-in fade-in zoom-in duration-200">
+                <div className="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <FileText className="text-blue-500" />
+                        <h2 className="text-xl font-bold text-slate-700">匯入學生名單</h2>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+                <div className="p-6">
+                    <p className="text-sm text-slate-500 mb-3 font-medium">
+                        請貼上學生姓名（支援換行、空格或逗號分隔）。<br/>
+                        套用後將<span className="text-blue-600 font-bold">自動依照名單人數修改應到人數</span>並產生座位。
+                    </p>
+                    <textarea
+                        className="w-full h-48 border-2 border-slate-200 rounded-xl p-3 focus:ring-4 focus:ring-blue-100 focus:border-blue-400 outline-none resize-none text-slate-700 font-medium"
+                        value={text}
+                        onChange={e => setText(e.target.value)}
+                        placeholder="例如：&#10;王小明&#10;李小華&#10;張大山"
+                    />
+                </div>
+                <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-3 items-center">
+                    <button 
+                        onClick={handleClear} 
+                        className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                    >
+                        清除並改用座號
+                    </button>
+                    <button 
+                        onClick={handleApply} 
+                        className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow-md hover:bg-blue-700 hover:shadow-lg transition-all active:scale-95"
+                    >
+                        套用名單
+                    </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const AbilitySettingModal = ({ isOpen, onClose, students, setStudents }) => {
+          const [activeTool, setActiveTool] = useState('A'); 
+
+          if (!isOpen) return null;
+
+          const counts = {
+            A: students.filter(s => s.ability === 'A').length,
+            B: students.filter(s => s.ability === 'B').length,
+            C: students.filter(s => s.ability === 'C').length,
+            D: students.filter(s => s.ability === 'D').length,
+          };
+
+          const handleStudentClick = (id) => {
+            const targetStudent = students.find(s => s.id === id);
+            if (!targetStudent || targetStudent.isEmpty) return;
+
+            setStudents(prev => prev.map(s => {
+              if (s.id === id) {
+                const newAbility = s.ability === activeTool ? null : activeTool;
+                return { ...s, ability: newAbility };
+              }
+              return s;
+            }));
+          };
+
+          const handleClearAll = () => {
+              setStudents(prev => prev.map(s => ({ ...s, ability: null })));
+          };
+
+          return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden border-4 border-orange-100 animate-in fade-in zoom-in duration-200">
+                
+                <div className="bg-orange-50 p-4 border-b border-orange-100 flex justify-between items-center shrink-0">
+                    <div className="flex items-center gap-2">
+                        <Settings className="text-orange-500" />
+                        <h2 className="text-xl font-bold text-slate-700">設定學生程度與角色</h2>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                        <X size={24} />
+                    </button>
+                </div>
+
+                <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+                    <div className="w-full md:w-80 bg-slate-50 p-4 border-r border-slate-100 flex flex-col gap-3 shrink-0 overflow-y-auto">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">1. 選擇程度畫筆</div>
+                        
+                        <ToolButton type="A" activeTool={activeTool} onClick={setActiveTool} subLabel="教練" label="A 咖" colorClass="bg-rose-500 border-rose-600" count={counts.A} description="學科能力最強、學習態度主動，負責帶領組員進行討論與完成任務。" />
+                        <ToolButton type="B" activeTool={activeTool} onClick={setActiveTool} subLabel="隊長" label="B 咖" colorClass="bg-blue-500 border-blue-600" count={counts.B} description="中等程度，能夠獨立完成任務，並協助A咖管理組內事務。" />
+                        <ToolButton type="C" activeTool={activeTool} onClick={setActiveTool} subLabel="隊員" label="C 咖" colorClass="bg-emerald-500 border-emerald-600" count={counts.C} description="基礎程度較弱，但有穩定學習動機，需要在AB咖協助下完成內容。" />
+                        <ToolButton type="D" activeTool={activeTool} onClick={setActiveTool} subLabel="黑馬" label="D 咖" colorClass="bg-amber-500 border-amber-600" count={counts.D} description="學習基礎較薄弱或專注力較低，需要小組密集輔導，但具備進步潛力。" />
+                        
+                        <hr className="border-slate-200 my-2"/>
+                        
+                        <button onClick={handleClearAll} className="flex items-center justify-center gap-2 w-full py-2.5 bg-white border-2 border-slate-200 text-slate-500 rounded-xl text-sm font-bold hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors">
+                            <RotateCcw size={14} /> 全部重置
+                        </button>
+                    </div>
+
+                    <div className="flex-1 p-6 overflow-y-auto bg-white">
+                        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white/95 backdrop-blur z-10 py-2 border-b border-slate-100">
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">2. 點擊號碼以套用</div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-slate-500">目前畫筆：</span>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold text-white shadow-sm
+                                    ${activeTool === 'A' ? 'bg-rose-500' : 
+                                      activeTool === 'B' ? 'bg-blue-500' : 
+                                      activeTool === 'C' ? 'bg-emerald-500' : 
+                                      'bg-amber-500'}
+                                `}>
+                                    {activeTool} 咖
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3 pb-10">
+                            {students.map((student) => {
+                                if (student.isEmpty) return null; 
+
+                                let colorClass = "bg-slate-50 border-slate-200 text-slate-900 font-bold hover:bg-slate-100";
+                                
+                                if (student.ability === 'A') colorClass = "bg-rose-100 border-rose-500 text-rose-700 font-bold shadow-[0_2px_0_0_rgba(244,63,94,1)] translate-y-[-2px]";
+                                if (student.ability === 'B') colorClass = "bg-blue-100 border-blue-500 text-blue-700 font-bold shadow-[0_2px_0_0_rgba(59,130,246,1)] translate-y-[-2px]";
+                                if (student.ability === 'C') colorClass = "bg-emerald-100 border-emerald-500 text-emerald-700 font-bold shadow-[0_2px_0_0_rgba(16,185,129,1)] translate-y-[-2px]";
+                                if (student.ability === 'D') colorClass = "bg-amber-100 border-amber-500 text-amber-700 font-bold shadow-[0_2px_0_0_rgba(245,158,11,1)] translate-y-[-2px]";
+
+                                return (
+                                    <button
+                                        key={student.id}
+                                        onClick={() => handleStudentClick(student.id)}
+                                        className={`
+                                            relative h-14 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-100
+                                            active:scale-95 active:shadow-none active:translate-y-0
+                                            ${colorClass}
+                                        `}
+                                    >
+                                        <span className="text-xl">{student.label || student.id}</span>
+                                        {student.ability && (
+                                            <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-[10px] flex items-center justify-center border shadow-sm font-black">
+                                                {student.ability}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                    <span className="text-xs text-slate-400 pl-2">提示：再次點擊已設定的學生可取消設定。</span>
+                    <button 
+                        onClick={onClose}
+                        className="px-8 py-2 bg-slate-800 text-white rounded-xl font-bold shadow-lg hover:bg-slate-700 hover:shadow-xl transition-all active:scale-95"
+                    >
+                        完成設定
+                    </button>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const Desk = ({ student, onMouseDown, onChangeLabel, onDelete, onToggleAbility, isSelected, isDuplicate, showAbilityControls }) => {
+          const getAbilityColor = (ability) => {
+            switch(ability) {
+              case 'A': return 'bg-rose-500 border-rose-600 shadow-rose-200';
+              case 'B': return 'bg-blue-500 border-blue-600 shadow-blue-200';
+              case 'C': return 'bg-emerald-500 border-emerald-600 shadow-emerald-200';
+              case 'D': return 'bg-amber-500 border-amber-600 shadow-amber-200';
+              default: return 'bg-slate-400 border-slate-500 shadow-slate-200';
+            }
+          };
+
+          if (student.isEmpty) {
+            return null; 
+          }
+
+          const getFontSizeClass = (text) => {
+            if (!text) return 'text-4xl';
+            const len = text.length;
+            if (len <= 2) return 'text-4xl';  
+            if (len === 3) return 'text-2xl';  
+            if (len === 4) return 'text-lg'; 
+            return 'text-base';                 
+          };
+
+          return (
+            <div
+              className={`absolute flex flex-col items-center justify-center cursor-move select-none transition-all duration-300 group ${isSelected ? 'z-50 scale-110 rotate-1' : 'z-10 scale-100 hover:scale-105 hover:z-20'}`}
+              style={{
+                left: student.x,
+                top: student.y,
+                width: '80px', 
+                height: '50px',
+                transform: 'translate(-50%, -50%)',
+                touchAction: 'none'
+              }}
+              onMouseDown={(e) => onMouseDown(e, student.id)}
+              onTouchStart={(e) => onMouseDown(e, student.id)}
+            >
+              {showAbilityControls && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onToggleAbility(student.id); }}
+                  className={`absolute -top-3 -left-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-black text-white shadow-md z-30 border-2 transition-transform cursor-pointer ${getAbilityColor(student.ability)} animate-bounce-sm hover:scale-110`}
+                  title={`目前程度: ${student.ability || '未設定'} (點擊切換 ABCD)`}
+                >
+                  {student.ability || '?'}
+                </button>
+              )}
+
+              <div className={`relative w-full h-full rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.1)] border-2 flex items-center justify-center transition-colors ${isSelected ? 'border-blue-400 bg-blue-50 ring-4 ring-blue-200' : 'border-amber-300 bg-amber-100 hover:bg-amber-50'}`}>
+                <div className="absolute top-1 left-2 w-1.5 h-1.5 bg-amber-300/50 rounded-full"></div>
+                <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-amber-300/50 rounded-full"></div>
+                
+                <input
+                  type="text"
+                  value={student.label}
+                  onChange={(e) => onChangeLabel(student.id, e.target.value)}
+                  className={`relative z-10 w-[90%] text-center bg-transparent border-b-2 border-dashed font-extrabold focus:outline-none focus:border-blue-400 p-0 leading-none transition-colors font-sans ${getFontSizeClass(student.label)} ${
+                    isDuplicate 
+                      ? 'text-red-500 border-red-300 placeholder-red-200' 
+                      : 'text-amber-800 border-amber-300/50 placeholder-amber-800/20'
+                  }`}
+                  placeholder="#"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                />
+                
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onDelete(student.id); }}
+                  className="absolute -top-3 -right-3 bg-red-400 hover:bg-red-500 text-white rounded-full p-0.5 w-6 h-6 flex items-center justify-center shadow-sm z-30 transition-all opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-110"
+                  title="刪除座位"
+                >
+                  <X size={14} strokeWidth={3} />
+                </button>
+              </div>
+            </div>
+          );
+        };
+
+        function ClassroomSeatingApp() {
+          const [studentCount, setStudentCount] = useState(24);
+          const [skipNumbersInput, setSkipNumbersInput] = useState(""); 
+          const [nameList, setNameList] = useState([]); 
+          const [rowsConfig, setRowsConfig] = useState(5); 
+          const [pairsConfig, setPairsConfig] = useState(3); 
+          const [groupSizeConfig, setGroupSizeConfig] = useState(4); 
+          const [uShapeSideConfig, setUShapeSideConfig] = useState(2); 
+          const [students, setStudents] = useState([]);
+          const [dragState, setDragState] = useState({ isDragging: false, id: null, offset: { x: 0, y: 0 } });
+          const [currentMode, setCurrentMode] = useState('rows'); 
+
+          const [isAbilityModalOpen, setIsAbilityModalOpen] = useState(false);
+          const [showAbilityControls, setShowAbilityControls] = useState(false); 
+          const [isNameModalOpen, setIsNameModalOpen] = useState(false); 
+
+          const canvasRef = useRef(null);
+          const fileInputRef = useRef(null);
+          const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+          const prevCanvasWidth = useRef(800); 
+
+          useEffect(() => {
+            const updateSize = () => {
+              if (canvasRef.current) {
+                const newWidth = canvasRef.current.offsetWidth;
+                const newHeight = canvasRef.current.offsetHeight;
+                
+                if (prevCanvasWidth.current !== newWidth && students.length > 0) {
+                     const deltaX = (newWidth - prevCanvasWidth.current) / 2;
+                     setStudents(prev => prev.map(s => ({
+                         ...s,
+                         x: s.x + deltaX
+                     })));
+                }
+                
+                setCanvasSize({ width: newWidth, height: newHeight });
+                prevCanvasWidth.current = newWidth;
+              }
+            };
+            window.addEventListener('resize', updateSize);
+            updateSize();
+            return () => window.removeEventListener('resize', updateSize);
+          }, [students.length]); 
+
+          const snapToGrid = (value, gridSize = 10) => {
+            return Math.round(value / gridSize) * gridSize;
+          };
+
+          const handleMouseDown = (e, id) => {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            const student = students.find(s => s.id === id);
+            if (!student || !canvasRef.current) return;
+
+            const canvasRect = canvasRef.current.getBoundingClientRect();
+            const offsetX = clientX - canvasRect.left - student.x;
+            const offsetY = clientY - canvasRect.top - student.y;
+
+            setDragState({
+              isDragging: true,
+              id: id,
+              offset: { x: offsetX, y: offsetY }
+            });
+          };
+
+          const handleMouseMove = (e) => {
+            if (!dragState.isDragging || !canvasRef.current) return;
+            e.preventDefault();
+
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const canvasRect = canvasRef.current.getBoundingClientRect();
+
+            let newX = clientX - canvasRect.left - dragState.offset.x;
+            let newY = clientY - canvasRect.top - dragState.offset.y;
+
+            newX = Math.max(40, Math.min(newX, canvasSize.width - 40));
+            newY = Math.max(25, Math.min(newY, canvasSize.height - 25));
+
+            setStudents(prev => prev.map(s => 
+              s.id === dragState.id ? { ...s, x: newX, y: newY } : s
+            ));
+          };
+
+          const handleMouseUp = () => {
+            if (dragState.isDragging && dragState.id !== null) {
+              setStudents(prev => prev.map(s => 
+                s.id === dragState.id ? { 
+                  ...s, 
+                  x: snapToGrid(s.x), 
+                  y: snapToGrid(s.y) 
+                } : s
+              ));
+            }
+            setDragState({ isDragging: false, id: null, offset: { x: 0, y: 0 } });
+          };
+
+          const handleChangeLabel = (id, newLabel) => {
+            setStudents(prev => prev.map(s => 
+              s.id === id ? { ...s, label: newLabel } : s
+            ));
+          };
+
+          const handleDelete = (id) => {
+            setStudents(prev => prev.filter(s => s.id !== id));
+          };
+
+          const handleToggleAbility = (id) => {
+            const abilities = ['A', 'B', 'C', 'D', null];
+            setStudents(prev => prev.map(s => {
+              if (s.id === id) {
+                const currentIndex = abilities.indexOf(s.ability || null);
+                const nextAbility = abilities[(currentIndex + 1) % abilities.length];
+                return { ...s, ability: nextAbility };
+              }
+              return s;
+            }));
+          };
+
+          const openAbilityModal = () => {
+            if (students.length === 0) {
+                generateSeats('rows'); 
+            }
+            setIsAbilityModalOpen(true);
+            setShowAbilityControls(true); 
+          };
+
+          const addOneSeat = () => {
+            const newId = Math.max(0, ...students.map(s => s.id)) + 1;
+            const centerX = snapToGrid(canvasSize.width / 2);
+            const centerY = snapToGrid(canvasSize.height / 2);
+            
+            setStudents(prev => [
+              ...prev,
+              {
+                id: newId,
+                label: "",
+                x: centerX,
+                y: centerY,
+                ability: null,
+                isEmpty: false 
+              }
+            ]);
+          };
+
+          const handleClearLabels = () => {
+            setStudents(prev => prev.map(s => ({ ...s, label: "" })));
+          };
+
+          const handleApplyNames = (names) => {
+            setNameList(names);
+            if (names.length > 0) {
+                setStudentCount(names.length); 
+                generateSeats(currentMode, null, names); 
+            } else {
+                generateSeats(currentMode, null, []); 
+            }
+            setIsNameModalOpen(false);
+          };
+
+          const handleRandomShuffle = () => {
+            if (students.length === 0) return;
+            
+            const allLabelsEmpty = students.every(s => !s.label || s.label.trim() === "");
+
+            let dataToShuffle = [];
+            if (allLabelsEmpty) {
+               dataToShuffle = students.map((s, i) => ({
+                   label: (i + 1).toString(),
+                   ability: s.ability
+               }));
+            } else {
+               dataToShuffle = students.map(s => ({
+                   label: s.label,
+                   ability: s.ability
+               }));
+            }
+            
+            for (let i = dataToShuffle.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [dataToShuffle[i], dataToShuffle[j]] = [dataToShuffle[j], dataToShuffle[i]];
+            }
+            
+            const newStudents = students.map((s, index) => ({
+                ...s,
+                label: dataToShuffle[index].label,
+                ability: dataToShuffle[index].ability
+            }));
+            
+            setStudents(newStudents);
+          };
+
+          const handleABCDGrouping = () => {
+            const targetCount = parseInt(studentCount) || 0;
+            const hasExistingAbilities = students.some(s => s.ability && ['A','B','C','D'].includes(s.ability));
+            let baseStudents = [];
+
+            if (hasExistingAbilities) {
+                baseStudents = [...students];
+            } else {
+                if (targetCount === 0) return;
+                
+                if (nameList.length > 0) {
+                     nameList.forEach((name, i) => {
+                         baseStudents.push({
+                             id: i + 1,
+                             label: name,
+                             isEmpty: false,
+                             ability: null
+                         });
+                     });
+                } else {
+                     const skipSet = new Set(
+                        skipNumbersInput.split(/[\s,]+/).map(n => parseInt(n)).filter(n => !isNaN(n))
+                     );
+                     let currentLabel = 1;
+                     let validCount = 0;
+                     while (validCount < targetCount) {
+                         const isSkip = skipSet.has(currentLabel);
+                         if (!isSkip) {
+                             baseStudents.push({
+                                 id: currentLabel, 
+                                 label: currentLabel.toString(),
+                                 isEmpty: false,
+                                 ability: null
+                             });
+                             validCount++;
+                         }
+                         currentLabel++;
+                     }
+                }
+
+                for (let i = baseStudents.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [baseStudents[i], baseStudents[j]] = [baseStudents[j], baseStudents[i]];
+                }
+            }
+
+            const N = baseStudents.length;
+            const desiredAbilities = new Array(N);
+            const abilitiesOptions = ['A', 'B', 'C', 'D'];
+
+            if (currentMode === 'rows') {
+                const rows = parseInt(rowsConfig) || 5;
+                for (let i = 0; i < N; i++) {
+                    const depth = Math.floor(i / rows);
+                    if (depth === 0) desiredAbilities[i] = 'A';
+                    else if (depth === 1) desiredAbilities[i] = 'B';
+                    else if (depth === 2) desiredAbilities[i] = 'C';
+                    else if (depth === 3) desiredAbilities[i] = 'D';
+                    else desiredAbilities[i] = abilitiesOptions[Math.floor(Math.random() * 4)]; 
+                }
+            } else if (currentMode === 'pairs') {
+                const numPairCols = parseInt(pairsConfig) || 3;
+                for (let i = 0; i < N; i++) {
+                    const pairIndex = Math.floor(i / 2);
+                    const myDepth = Math.floor(pairIndex / numPairCols);
+                    const posInPair = i % 2; 
+                    if (myDepth === 0) desiredAbilities[i] = posInPair === 0 ? 'A' : 'A';      
+                    else if (myDepth === 1) desiredAbilities[i] = posInPair === 0 ? 'B' : 'B'; 
+                    else if (myDepth === 2) desiredAbilities[i] = posInPair === 0 ? 'C' : 'C'; 
+                    else if (myDepth === 3) desiredAbilities[i] = posInPair === 0 ? 'D' : 'D'; 
+                    else desiredAbilities[i] = abilitiesOptions[Math.floor(Math.random() * 4)]; 
+                }
+            } else {
+                for (let i = 0; i < N; i++) {
+                    const seq = ['A', 'D', 'B', 'C'];
+                    desiredAbilities[i] = seq[i % 4];
+                }
+            }
+
+            let studentsToGroup = [];
+
+            if (hasExistingAbilities) {
+                const abilityGroups = { 'A': [], 'B': [], 'C': [], 'D': [], '?': [] };
+                baseStudents.forEach(s => {
+                    const key = ['A','B','C','D'].includes(s.ability) ? s.ability : '?';
+                    abilityGroups[key].push(s);
+                });
+
+                Object.values(abilityGroups).forEach(group => {
+                    for (let i = group.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [group[i], group[j]] = [group[j], group[i]];
+                    }
+                });
+
+                for (let i = 0; i < N; i++) {
+                    const targetAbility = desiredAbilities[i];
+                    let assignedStudent = null;
+
+                    if (abilityGroups[targetAbility] && abilityGroups[targetAbility].length > 0) {
+                        assignedStudent = abilityGroups[targetAbility].pop();
+                    } else {
+                        const fallbackKeys = ['?', 'A', 'B', 'C', 'D'].filter(k => abilityGroups[k] && abilityGroups[k].length > 0);
+                        if (fallbackKeys.length > 0) {
+                            const randomKey = fallbackKeys[Math.floor(Math.random() * fallbackKeys.length)];
+                            assignedStudent = abilityGroups[randomKey].pop();
+                        }
+                    }
+                    if (assignedStudent) {
+                        studentsToGroup.push(assignedStudent);
+                    }
+                }
+            } else {
+                for (let i = 0; i < N; i++) {
+                    baseStudents[i].ability = desiredAbilities[i];
+                    studentsToGroup.push(baseStudents[i]);
+                }
+            }
+
+            setGroupSizeConfig(4); 
+            
+            generateSeats(currentMode, studentsToGroup);
+          };
+
+          const handleExport = () => {
+            if (students.length === 0) {
+              alert("目前沒有座位可供匯出");
+              return;
+            }
+            const dataStr = JSON.stringify(students, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            const date = new Date().toISOString().slice(0, 10);
+            link.download = `classroom_seating_${date}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          };
+
+          const handleImportClick = () => {
+            fileInputRef.current?.click();
+          };
+
+          const handleFileChange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              try {
+                const importedData = JSON.parse(event.target.result);
+                if (Array.isArray(importedData)) {
+                   const isValid = importedData.every(s => s.hasOwnProperty('id') && s.hasOwnProperty('x') && s.hasOwnProperty('y'));
+                   if(isValid) {
+                     setStudents(importedData);
+                     setStudentCount(importedData.length);
+                   } else {
+                     alert('檔案格式錯誤：內容不符合座位表格式');
+                   }
+                } else {
+                  alert('格式錯誤：檔案必須是座位陣列');
+                }
+              } catch (error) {
+                alert('無法讀取檔案，請確認是否為有效的 JSON 檔');
+              }
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+          };
+
+          const getPositionInGroup = (center, posInGroup, effectiveGroupSize) => {
+            const seatW = 80; 
+            const seatH = 50; 
+            const gap = 10; 
+
+            let offsetX = 0;
+            let offsetY = 0;
+            
+            const cols = 2; 
+            const totalRows = Math.ceil(effectiveGroupSize / cols);
+
+            const rowIndex = Math.floor(posInGroup / cols);
+            const colIndex = posInGroup % cols; 
+
+            if (effectiveGroupSize === 5 && posInGroup === 4) {
+                offsetX = 0; 
+            } else {
+                offsetX = (colIndex === 0 ? -1 : 1) * (seatW / 2 + gap / 2);
+            }
+
+            const totalHeight = totalRows * seatH + (totalRows - 1) * gap;
+            const rowTop = -totalHeight / 2;
+            
+            offsetY = rowTop + (rowIndex * (seatH + gap)) + seatH / 2;
+
+            return {
+              x: center.x + offsetX,
+              y: center.y + offsetY
+            };
+          };
+
+          const generateSeats = (mode, optionalList = null, overrideNameList = null) => {
+            setCurrentMode(mode); 
+
+            const activeNameList = overrideNameList !== null ? overrideNameList : nameList;
+            let seatList = [];
+
+            if (optionalList) {
+                seatList = optionalList;
+            } else {
+                const targetCount = overrideNameList !== null && overrideNameList.length > 0 ? overrideNameList.length : (parseInt(studentCount) || 0);
+                const skipSet = new Set(
+                    skipNumbersInput.split(/[\s,]+/).map(n => parseInt(n)).filter(n => !isNaN(n))
+                );
+                
+                let currentLabel = 1;
+                let validCount = 0;
+                
+                while (validCount < targetCount) {
+                    const isSkip = skipSet.has(currentLabel);
+                    if (!isSkip) {
+                        let labelToUse = currentLabel.toString();
+                        let abilityToUse = null;
+
+                        if (overrideNameList !== null) {
+                            if (validCount < overrideNameList.length) {
+                                labelToUse = overrideNameList[validCount];
+                            }
+                        } else if (validCount < students.length) {
+                            labelToUse = students[validCount].label;
+                            abilityToUse = students[validCount].ability;
+                        } else if (activeNameList.length > validCount) {
+                            labelToUse = activeNameList[validCount];
+                        }
+
+                        seatList.push({
+                            id: currentLabel, 
+                            label: labelToUse,
+                            isEmpty: false,
+                            ability: abilityToUse,
+                            x: 0, y: 0 
+                        });
+                        validCount++;
+                    }
+                    currentLabel++;
+                }
+            }
+
+            const totalItems = seatList.length; 
+            const newStudents = [];
+            const width = canvasSize.width;
+            const height = canvasSize.height; 
+            
+            const usableTop = 160; 
+            const usableHeight = height - usableTop - 60; 
+
+            const finalizeSeat = (index, x, y) => {
+                return { ...seatList[index], id: index + 1, x, y }; 
+            };
+
+            if (mode === 'rows') {
+              const rows = parseInt(rowsConfig) || 5;
+              const totalRows = rows; 
+              const itemsPerCol = Math.ceil(totalItems / totalRows);
+              
+              let idealColStep = width / (totalRows + 1);
+              let colStep = Math.round(idealColStep / 20) * 20; 
+              if (colStep < 100) colStep = 100;
+
+              const totalWidth = (totalRows - 1) * colStep;
+              let startX = (width - totalWidth) / 2;
+
+              const minRowStep = 60; 
+              let idealRowStep = usableHeight / itemsPerCol; 
+              if (idealRowStep < minRowStep) idealRowStep = minRowStep;
+              if (idealRowStep > 120) idealRowStep = 120;
+              
+              let rowStep = Math.round(idealRowStep / 20) * 20;
+              let startY = snapToGrid(usableTop + 40); 
+
+              for (let i = 0; i < totalItems; i++) {
+                const myRow = i % totalRows; 
+                const myDepth = Math.floor(i / totalRows); 
+
+                const x = startX + (myRow * colStep);
+                const y = startY + (myDepth * rowStep); 
+
+                newStudents.push(finalizeSeat(i, x, y));
+              }
+
+            } else if (mode === 'pairs') {
+              const numPairCols = parseInt(pairsConfig) || 3;
+              
+              const idealColStep = width / (numPairCols + 1);
+              
+              let colStep = Math.round(idealColStep / 20) * 20;
+              if (colStep < 220) colStep = 220; 
+
+              const totalWidth = (numPairCols - 1) * colStep;
+              let startX = (width - totalWidth) / 2;
+
+              const itemsInPairCol = Math.ceil((totalItems / 2) / numPairCols);
+              
+              const minRowStep = 60; 
+              let idealRowStep = usableHeight / itemsInPairCol; 
+              if (idealRowStep < minRowStep) idealRowStep = minRowStep;
+              if (idealRowStep > 120) idealRowStep = 120;
+              
+              let rowStep = Math.round(idealRowStep / 20) * 20;
+              let startY = snapToGrid(usableTop + 40); 
+
+              for (let i = 0; i < totalItems; i++) {
+                const pairIndex = Math.floor(i / 2); 
+                const posInPair = i % 2; 
+
+                const myCol = pairIndex % numPairCols; 
+                const myDepth = Math.floor(pairIndex / numPairCols); 
+
+                const pairCenterX = startX + (myCol * colStep);
+                const y = startY + (myDepth * rowStep); 
+                
+                const offsetX = (posInPair === 0 ? -1 : 1) * 41;
+                const x = pairCenterX + offsetX;
+
+                newStudents.push(finalizeSeat(i, x, y));
+              }
+
+            } else if (mode === 'groups') {
+              const sizePerGroup = parseInt(groupSizeConfig) || 4;
+              const fixedGroups = 6;
+              const groupCols = 3;
+              const groupRows = 2; 
+
+              const gridW = width / groupCols;
+
+              const frontRowY = usableTop + 65; 
+              const backRowY = frontRowY + 220;
+              
+              const groupCenters = [];
+              for (let g = 0; g < fixedGroups; g++) {
+                  const col = g % groupCols;
+                  const row = Math.floor(g / groupCols);
+                  let centerY = row === 0 ? frontRowY : backRowY;
+                  groupCenters.push({ x: (gridW * col) + (gridW / 2), y: centerY });
+              }
+
+              const finalGroupCounts = new Array(fixedGroups).fill(0);
+              for (let i = 0; i < totalItems; i++) {
+                let groupIndex;
+                if (i < fixedGroups * sizePerGroup) {
+                    groupIndex = Math.floor(i / sizePerGroup);
+                } else {
+                    groupIndex = (i - (fixedGroups * sizePerGroup)) % fixedGroups;
+                }
+                groupIndex = groupIndex % fixedGroups;
+                finalGroupCounts[groupIndex]++;
+              }
+
+              const currentGroupIndices = new Array(fixedGroups).fill(0);
+
+              for (let i = 0; i < totalItems; i++) {
+                let groupIndex;
+                if (i < fixedGroups * sizePerGroup) {
+                    groupIndex = Math.floor(i / sizePerGroup);
+                } else {
+                    groupIndex = (i - (fixedGroups * sizePerGroup)) % fixedGroups;
+                }
+                groupIndex = groupIndex % fixedGroups;
+
+                const posInGroup = currentGroupIndices[groupIndex];
+                currentGroupIndices[groupIndex]++;
+                
+                const center = groupCenters[groupIndex];
+                const effectiveGroupSize = finalGroupCounts[groupIndex];
+
+                const pos = getPositionInGroup(center, posInGroup, effectiveGroupSize);
+
+                newStudents.push(finalizeSeat(i, pos.x, pos.y));
+              }
+
+            } else if (mode === 'u-shape') {
+              const sizePerGroup = 4;
+              const numGroups = Math.ceil(totalItems / sizePerGroup);
+              const maxSideGroups = parseInt(uShapeSideConfig) || 2; 
+              const groupsForSides = Math.min(numGroups, maxSideGroups * 2);
+              
+              const leftGroupCount = Math.ceil(groupsForSides / 2);
+              const rightGroupCount = Math.floor(groupsForSides / 2);
+              const backGroupCount = numGroups - leftGroupCount - rightGroupCount;
+
+              const groupCenters = []; 
+
+              const sideGroupGap = 150; 
+              const startSideY = usableTop + 50;
+
+              for (let i = 0; i < leftGroupCount; i++) {
+                  const y = startSideY + (i * sideGroupGap);
+                  groupCenters.push({ x: 120, y: y });
+              }
+              
+              for (let i = 0; i < rightGroupCount; i++) {
+                  const y = startSideY + (i * sideGroupGap);
+                  groupCenters.push({ x: width - 120, y: y });
+              }
+
+              const bottomY = height - 100; 
+              const bottomGroupGap = 220; 
+              
+              const totalBottomWidth = (Math.max(0, backGroupCount - 1)) * bottomGroupGap;
+              const startBottomX = (width - totalBottomWidth) / 2;
+
+              for (let i = 0; i < backGroupCount; i++) {
+                  const x = startBottomX + (i * bottomGroupGap);
+                  groupCenters.push({ x: x, y: bottomY });
+              }
+
+              const uShapeGroupCounts = new Array(groupCenters.length).fill(0);
+              for (let i = 0; i < totalItems; i++) {
+                  let groupIndex = Math.floor(i / sizePerGroup);
+                  if (groupIndex >= groupCenters.length) {
+                      groupIndex = groupCenters.length - 1;
+                  }
+                  uShapeGroupCounts[groupIndex]++;
+              }
+
+              const uShapeCurrentIndices = new Array(groupCenters.length).fill(0);
+              for (let i = 0; i < totalItems; i++) {
+                  let groupIndex = Math.floor(i / sizePerGroup);
+                  if (groupIndex >= groupCenters.length) {
+                      groupIndex = groupCenters.length - 1;
+                  }
+                  
+                  const posInGroup = uShapeCurrentIndices[groupIndex];
+                  uShapeCurrentIndices[groupIndex]++;
+                  
+                  const center = groupCenters[groupIndex];
+                  const effectiveSize = uShapeGroupCounts[groupIndex];
+
+                  const pos = getPositionInGroup(center, posInGroup, effectiveSize);
+
+                  newStudents.push(finalizeSeat(i, pos.x, pos.y));
+              }
+            }
+
+            setStudents(newStudents);
+          };
+
+          const labelCounts = {};
+          students.forEach(s => {
+            if (s.label && s.label.trim() !== "") {
+              labelCounts[s.label] = (labelCounts[s.label] || 0) + 1;
+            }
+          });
+
+          const actualStudentCount = students.length;
+
+          return (
+            <div className="flex flex-col h-screen bg-orange-50 font-sans text-slate-800 overflow-hidden font-medium"
+                 onMouseMove={handleMouseMove}
+                 onMouseUp={handleMouseUp}
+                 onTouchMove={handleMouseMove}
+                 onTouchEnd={handleMouseUp}
+            >
+              <AbilitySettingModal 
+                isOpen={isAbilityModalOpen} 
+                onClose={() => setIsAbilityModalOpen(false)}
+                students={students}
+                setStudents={setStudents}
+              />
+
+              <NameListModal
+                isOpen={isNameModalOpen}
+                onClose={() => setIsNameModalOpen(false)}
+                onApply={handleApplyNames}
+                initialNameList={nameList}
+              />
+
+              {/* 提示橫幅 */}
+              <div className="bg-red-100 text-red-500 text-xs py-1.5 text-center border-b border-red-200 font-bold tracking-wide shrink-0">
+                💡小提醒：為了完整呈現座位表畫面，建議把電腦視窗比例縮放到最適當的大小
+              </div>
+
+              {/* 隱藏的檔案輸入框 */}
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept=".json"
+                onChange={handleFileChange}
+              />
+
+              {/* --- 控制面板 --- */}
+              <div className="bg-white shadow-md border-b-2 border-orange-100 p-2 flex flex-wrap gap-2 items-center z-20 shrink-0 rounded-b-3xl mx-2 mt-1">
+                
+                {/* 1. 標題與人數 */}
+                <div className="flex items-center gap-1 mr-2 pl-2">
+                   <Smile className="w-6 h-6 text-orange-400" />
+                   <h1 className="text-lg font-bold text-orange-800 whitespace-nowrap tracking-wide">教室座位表</h1>
+                </div>
+
+                <div className="flex items-center gap-1 bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200 shadow-sm" title={nameList.length > 0 ? "修改將會清除名單" : ""}>
+                    <Users size={14} className="text-orange-500"/>
+                    <span className="text-xs font-bold text-orange-700">應到</span>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      max="60"
+                      value={studentCount} 
+                      onChange={(e) => {
+                          setStudentCount(Number(e.target.value));
+                          if(nameList.length > 0) setNameList([]);
+                      }}
+                      className="w-10 p-0.5 bg-white border border-orange-200 rounded-lg text-center text-xs focus:ring-2 focus:ring-orange-300 outline-none font-bold text-orange-800"
+                    />
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200 shadow-sm" title={nameList.length > 0 ? "修改將會清除名單" : ""}>
+                    <Ban size={14} className="text-slate-500"/>
+                    <span className="text-xs font-bold text-slate-600">空號</span>
+                    <input 
+                      type="text" 
+                      placeholder="例: 2, 5"
+                      value={skipNumbersInput} 
+                      onChange={(e) => {
+                          setSkipNumbersInput(e.target.value);
+                          if(nameList.length > 0) setNameList([]);
+                      }}
+                      className="w-16 p-0.5 bg-white border border-slate-300 rounded-lg text-center text-xs focus:ring-2 focus:ring-slate-300 outline-none font-bold text-slate-700"
+                    />
+                </div>
+
+                {/* 匯入名單按鈕 */}
+                <button 
+                    onClick={() => setIsNameModalOpen(true)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full border shadow-sm text-xs font-bold transition-all active:scale-95 ${nameList.length > 0 ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'}`}
+                >
+                    <FileText size={14} />
+                    匯入名單
+                </button>
+
+                <div className="h-6 w-0.5 bg-orange-100 mx-1 hidden md:block rounded-full"></div>
+
+                {/* 2. Set Ability Button */}
+                <button 
+                    onClick={openAbilityModal}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95 ${showAbilityControls ? 'bg-orange-500 text-white ring-2 ring-orange-300' : 'bg-orange-100 hover:bg-orange-200 text-orange-700'}`}
+                    title="開啟能力設定面板"
+                >
+                    <Settings size={14} />
+                    設定程度
+                </button>
+
+                <div className="h-6 w-0.5 bg-orange-100 mx-1 hidden md:block rounded-full"></div>
+
+                {/* 3. Layout Buttons */}
+                <div className="flex items-center shadow-sm">
+                    <button 
+                        onClick={() => generateSeats('rows')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-l-full border-r border-blue-200 transition-all text-xs whitespace-nowrap font-bold active:scale-95"
+                    >
+                        <LayoutGrid size={14} />
+                        直排
+                    </button>
+                    <div className="bg-blue-50 px-2 py-1.5 rounded-r-full flex items-center gap-1 border border-blue-100">
+                        <span className="text-[10px] text-blue-500 font-bold">行</span>
+                        <input 
+                        type="number" 
+                        min="1" 
+                        max="10" 
+                        value={rowsConfig}
+                        onChange={(e) => setRowsConfig(e.target.value)}
+                        className="w-10 text-xs p-0.5 border border-blue-200 rounded-md text-center focus:border-blue-400 outline-none bg-white text-blue-800"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center shadow-sm">
+                    <button 
+                        onClick={() => generateSeats('pairs')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-cyan-100 hover:bg-cyan-200 text-cyan-700 rounded-l-full border-r border-cyan-200 transition-all text-xs whitespace-nowrap font-bold active:scale-95"
+                    >
+                        <Columns size={14} />
+                        雙人
+                    </button>
+                    <div className="bg-cyan-50 px-2 py-1.5 rounded-r-full flex items-center gap-1 border border-cyan-100">
+                        <span className="text-[10px] text-cyan-500 font-bold">排</span>
+                        <input 
+                        type="number" 
+                        min="1" 
+                        max="10" 
+                        value={pairsConfig}
+                        onChange={(e) => setPairsConfig(e.target.value)}
+                        className="w-10 text-xs p-0.5 border border-cyan-200 rounded-md text-center focus:border-cyan-400 outline-none bg-white text-cyan-800"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center shadow-sm">
+                    <button 
+                        onClick={() => generateSeats('groups')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-l-full border-r border-emerald-200 transition-all text-xs whitespace-nowrap font-bold active:scale-95"
+                    >
+                        <Box size={14} />
+                        小組
+                    </button>
+                    <div className="bg-emerald-50 px-2 py-1.5 rounded-r-full flex items-center gap-1 border border-emerald-100">
+                        <span className="text-[10px] text-emerald-500 font-bold">每組</span>
+                        <input 
+                        type="number" 
+                        min="4" 
+                        max="8" 
+                        value={groupSizeConfig}
+                        onChange={(e) => setGroupSizeConfig(e.target.value)}
+                        className="w-10 text-xs p-0.5 border border-emerald-200 rounded-md text-center focus:border-emerald-400 outline-none bg-white text-emerald-800"
+                        />
+                    </div>
+                </div>
+
+                <div className="flex items-center shadow-sm">
+                    <button 
+                        onClick={() => generateSeats('u-shape')}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-l-full border-r border-violet-200 transition-all text-xs whitespace-nowrap font-bold active:scale-95"
+                    >
+                        <LayoutTemplate size={14} />
+                        ㄇ字型
+                    </button>
+                    <div className="bg-violet-50 px-2 py-1.5 rounded-r-full flex items-center gap-1 border border-violet-100">
+                        <span className="text-[10px] text-violet-500 font-bold">邊</span>
+                        <input 
+                        type="number" 
+                        min="0" 
+                        max="5" 
+                        value={uShapeSideConfig}
+                        onChange={(e) => setUShapeSideConfig(e.target.value)}
+                        className="w-10 text-xs p-0.5 border border-violet-200 rounded-md text-center focus:border-violet-400 outline-none bg-white text-violet-800"
+                        />
+                        <span className="text-[10px] text-violet-500 font-bold">組</span>
+                    </div>
+                </div>
+
+                {/* 4. Action Buttons */}
+                <div className="flex gap-1.5 ml-2 border-l-2 border-orange-100 pl-2">
+                    <button 
+                        onClick={handleRandomShuffle}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="隨機交換座位 (保持位置，交換學生)"
+                    >
+                        <Shuffle size={14} />
+                        隨機分配
+                    </button>
+                    <button 
+                        onClick={handleABCDGrouping}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="ABCD 異質分組 (自動分配能力並分組)"
+                    >
+                        <GraduationCap size={14} />
+                        ABCD分組
+                    </button>
+                     <button 
+                        onClick={handleClearLabels}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="只清空號碼/姓名"
+                    >
+                        <Ban size={14} />
+                        清空號碼
+                    </button>
+                </div>
+
+                <div className="flex-1"></div>
+
+                {/* 5. Edit Buttons */}
+                <div className="flex gap-1.5">
+                    <button 
+                        onClick={addOneSeat}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                    >
+                        <Plus size={14} />
+                        <span className="hidden sm:inline">新增座位</span>
+                    </button>
+                    <button 
+                        onClick={() => setStudents([])}
+                        className="flex items-center px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="清空所有座位"
+                    >
+                        重置
+                    </button>
+                </div>
+
+                {/* 6. File Buttons */}
+                <div className="flex gap-1.5 border-l-2 border-orange-100 pl-2">
+                    <button 
+                        onClick={handleExport}
+                        className="flex items-center px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="匯出"
+                    >
+                        匯出
+                    </button>
+                    <button 
+                        onClick={handleImportClick}
+                        className="flex items-center px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="匯入"
+                    >
+                        匯入
+                    </button>
+                </div>
+              </div>
+
+              {/* --- 教室畫布 --- */}
+              <div 
+                className="flex-1 relative bg-orange-50/50 overflow-hidden shadow-inner cursor-grab active:cursor-grabbing" 
+                ref={canvasRef}
+              >
+                 
+                 {/* 地板 (淺色木紋感) */}
+                 <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
+                      style={{ 
+                        backgroundImage: 'linear-gradient(90deg, #d97706 1px, transparent 1px), linear-gradient(#d97706 1px, transparent 1px)', 
+                        backgroundSize: '40px 40px' 
+                      }}>
+                 </div>
+
+                 {/* 黑板區域 */}
+                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/2 h-14 bg-emerald-700 border-b-8 border-x-8 border-amber-700 shadow-xl rounded-b-xl flex items-center justify-center z-0">
+                     <span className="text-white font-serif text-2xl tracking-widest select-none font-bold opacity-90">黑 板</span>
+                     {/* 粉筆槽 */}
+                     <div className="absolute bottom-0 w-full h-1.5 bg-white/30 rounded-full mx-2"></div>
+                 </div>
+
+                 {/* 講桌 */}
+                 <div className="absolute top-20 left-1/2 -translate-x-1/2 w-40 h-12 bg-orange-800 rounded-xl shadow-lg flex flex-col items-center justify-center border-t-2 border-orange-600 z-0">
+                    <div className="w-4/5 h-full border-x border-orange-900/30 bg-orange-700/50"></div>
+                    <span className="absolute text-white text-sm font-bold tracking-widest pointer-events-none drop-shadow-md">講 台</span>
+                 </div>
+
+                 {/* 提示文字 */}
+                 {students.length === 0 && (
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-slate-400 pointer-events-none">
+                     <div className="bg-white/50 p-6 rounded-3xl backdrop-blur-sm shadow-sm border border-white/60">
+                        <Smile size={64} className="mx-auto mb-3 text-orange-300" />
+                        <p className="text-xl font-bold text-slate-600">目前沒有座位</p>
+                        <p className="text-sm mt-2 text-slate-500">請使用上方可愛的按鈕生成座位 ✨</p>
+                     </div>
+                   </div>
+                 )}
+                 
+                 {/* 磁吸對齊提示 */}
+                 {dragState.isDragging && (
+                    <div className="absolute top-4 right-4 text-xs bg-blue-100 text-blue-600 px-3 py-1.5 rounded-full border border-blue-200 flex items-center gap-1 pointer-events-none z-50 shadow-sm font-bold">
+                       <Magnet size={12} />
+                       自動對齊中...
+                    </div>
+                 )}
+
+                 {/* 學生座位 */}
+                 {students.map(student => {
+                   const isDuplicate = student.label && labelCounts[student.label] > 1;
+
+                   return (
+                     <Desk 
+                       key={student.id} 
+                       student={student} 
+                       onMouseDown={handleMouseDown}
+                       onChangeLabel={handleChangeLabel}
+                       onDelete={handleDelete}
+                       onToggleAbility={handleToggleAbility}
+                       isSelected={dragState.id === student.id}
+                       isDuplicate={isDuplicate}
+                       showAbilityControls={showAbilityControls}
+                     />
+                   );
+                 })}
+              </div>
+
+              <div className="bg-white/80 backdrop-blur border-t border-orange-100 p-2 text-[10px] text-slate-500 flex justify-between items-center px-4 shrink-0">
+                <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-full"><Magnet size={10}/> 放開滑鼠時將自動對齊網格。</span>
+                <span className="font-bold text-orange-400">© 2026 鄭念慈 版權所有</span>
+                <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold">實到人數：{actualStudentCount} (應到: {studentCount})</span>
+              </div>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<ClassroomSeatingApp />);
+    </script>
+</body>
+</html>
