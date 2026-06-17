@@ -11,6 +11,14 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- 引入 Babel 用於在瀏覽器中編譯 JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 註冊自訂 React 預設集以強制使用 classic runtime，避免編譯錯誤 -->
+    <script>
+        Babel.registerPreset('custom-react', {
+            presets: [
+                [Babel.availablePresets['react'], { runtime: 'classic' }]
+            ]
+        });
+    </script>
     <!-- 引入 Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     
@@ -30,7 +38,7 @@
 <body>
     <div id="root"></div>
 
-    <script type="text/babel">
+    <script type="text/babel" data-presets="custom-react">
         const { useState, useRef, useEffect, createElement } = React;
 
         // --- Lucide PascalCase 至 kebab-case 轉換對照表 ---
@@ -83,7 +91,7 @@
                         svg.setAttribute('stroke-linejoin', 'round');
                         if (className) svg.setAttribute('class', className);
                         
-                        // 修正：不使用陣列解構 (tag, attrs)，避免 Babel Standalone 在特定瀏覽器下產生不支援的迭代器程式碼
+                        // 不使用陣列解構，避免 Babel Standalone 在特定瀏覽器下產生不支援的迭代器程式碼
                         if (iconData[2]) {
                             iconData[2].forEach((child) => {
                                 if (child && child.length >= 2) {
@@ -132,7 +140,7 @@
         const Eraser = (p) => <Icon name="Eraser" {...p} />;
 
         // ==========================================
-        // 核心應用程式碼開始 (同先前的 ClassroomSeatingApp)
+        // 核心應用程式碼
         // ==========================================
 
         const ToolButton = ({ type, label, subLabel, colorClass, count, description, activeTool, onClick }) => (
@@ -429,16 +437,27 @@
         };
 
         function ClassroomSeatingApp() {
-          const [studentCount, setStudentCount] = useState(24);
-          const [skipNumbersInput, setSkipNumbersInput] = useState(""); 
-          const [nameList, setNameList] = useState([]); 
-          const [rowsConfig, setRowsConfig] = useState(5); 
-          const [pairsConfig, setPairsConfig] = useState(3); 
-          const [groupSizeConfig, setGroupSizeConfig] = useState(4); 
-          const [uShapeSideConfig, setUShapeSideConfig] = useState(2); 
-          const [students, setStudents] = useState([]);
+          // --- 載入本機資料 ---
+          const loadData = () => {
+            try {
+                const item = localStorage.getItem('classroom_seating_data');
+                return item ? JSON.parse(item) : {};
+            } catch (e) {
+                return {};
+            }
+          };
+          const savedData = loadData();
+
+          const [studentCount, setStudentCount] = useState(savedData.studentCount !== undefined ? savedData.studentCount : 24);
+          const [skipNumbersInput, setSkipNumbersInput] = useState(savedData.skipNumbersInput !== undefined ? savedData.skipNumbersInput : ""); 
+          const [nameList, setNameList] = useState(savedData.nameList || []); 
+          const [rowsConfig, setRowsConfig] = useState(savedData.rowsConfig !== undefined ? savedData.rowsConfig : 5); 
+          const [pairsConfig, setPairsConfig] = useState(savedData.pairsConfig !== undefined ? savedData.pairsConfig : 3); 
+          const [groupSizeConfig, setGroupSizeConfig] = useState(savedData.groupSizeConfig !== undefined ? savedData.groupSizeConfig : 4); 
+          const [uShapeSideConfig, setUShapeSideConfig] = useState(savedData.uShapeSideConfig !== undefined ? savedData.uShapeSideConfig : 2); 
+          const [students, setStudents] = useState(savedData.students || []);
           const [dragState, setDragState] = useState({ isDragging: false, id: null, offset: { x: 0, y: 0 } });
-          const [currentMode, setCurrentMode] = useState('rows'); 
+          const [currentMode, setCurrentMode] = useState(savedData.currentMode || 'rows'); 
 
           const [isAbilityModalOpen, setIsAbilityModalOpen] = useState(false);
           const [showAbilityControls, setShowAbilityControls] = useState(false); 
@@ -448,6 +467,15 @@
           const fileInputRef = useRef(null);
           const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
           const prevCanvasWidth = useRef(800); 
+
+          // --- 儲存資料至本機 ---
+          useEffect(() => {
+              const dataToSave = {
+                  studentCount, skipNumbersInput, nameList, rowsConfig,
+                  pairsConfig, groupSizeConfig, uShapeSideConfig, students, currentMode
+              };
+              localStorage.setItem('classroom_seating_data', JSON.stringify(dataToSave));
+          }, [studentCount, skipNumbersInput, nameList, rowsConfig, pairsConfig, groupSizeConfig, uShapeSideConfig, students, currentMode]);
 
           useEffect(() => {
             const updateSize = () => {
@@ -1080,6 +1108,22 @@
 
           const actualStudentCount = students.length;
 
+          // 清除本機紀錄的處理函式
+          const handleClearStorage = () => {
+              if (window.confirm("確定要清除所有存檔並恢復為預設狀態嗎？")) {
+                  localStorage.removeItem('classroom_seating_data');
+                  setStudentCount(24);
+                  setSkipNumbersInput("");
+                  setNameList([]);
+                  setRowsConfig(5);
+                  setPairsConfig(3);
+                  setGroupSizeConfig(4);
+                  setUShapeSideConfig(2);
+                  setStudents([]);
+                  setCurrentMode('rows');
+              }
+          };
+
           return (
             <div className="flex flex-col h-screen bg-orange-50 font-sans text-slate-800 overflow-hidden font-medium"
                  onMouseMove={handleMouseMove}
@@ -1102,7 +1146,7 @@
               />
 
               {/* 提示橫幅 */}
-              <div className="bg-red-100 text-red-500 text-xs py-1.5 text-center border-b border-red-200 font-bold tracking-wide shrink-0">
+              <div className="bg-red-100 text-red-500 text-xs py-1.5 text-center border-b border-red-200 font-bold tracking-wide shrink-0 flex items-center justify-center gap-2">
                 💡小提醒：為了完整呈現座位表畫面，建議把電腦視窗比例縮放到最適當的大小
               </div>
 
@@ -1308,7 +1352,15 @@
                         className="flex items-center px-3 py-1.5 bg-rose-100 hover:bg-rose-200 text-rose-600 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
                         title="清空所有座位"
                     >
-                        重置
+                        清空
+                    </button>
+                    <button 
+                        onClick={handleClearStorage}
+                        className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-all shadow-sm text-xs whitespace-nowrap font-bold active:scale-95"
+                        title="清除本機存檔並恢復系統預設值"
+                    >
+                        <RotateCcw size={14} />
+                        還原預設
                     </button>
                 </div>
 
@@ -1398,7 +1450,10 @@
               </div>
 
               <div className="bg-white/80 backdrop-blur border-t border-orange-100 p-2 text-[10px] text-slate-500 flex justify-between items-center px-4 shrink-0">
-                <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-full"><Magnet size={10}/> 放開滑鼠時將自動對齊網格。</span>
+                <div className="flex gap-2">
+                    <span className="flex items-center gap-1 bg-orange-50 px-2 py-1 rounded-full"><Magnet size={10}/> 放開滑鼠時將自動對齊網格。</span>
+                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full"><Check size={10}/> 已自動儲存至本機</span>
+                </div>
                 <span className="font-bold text-orange-400">© 2026 鄭念慈 版權所有</span>
                 <span className="bg-blue-50 text-blue-600 px-2 py-1 rounded-full font-bold">實到人數：{actualStudentCount} (應到: {studentCount})</span>
               </div>
