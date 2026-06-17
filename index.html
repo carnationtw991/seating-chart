@@ -467,6 +467,7 @@
           const fileInputRef = useRef(null);
           const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
           const prevCanvasWidth = useRef(800); 
+          const isFirstRender = useRef(true); // 新增：用於判斷是否為初始載入
 
           // --- 儲存資料至本機 ---
           useEffect(() => {
@@ -483,7 +484,8 @@
                 const newWidth = canvasRef.current.offsetWidth;
                 const newHeight = canvasRef.current.offsetHeight;
                 
-                if (prevCanvasWidth.current !== newWidth && students.length > 0) {
+                // 只有在「非第一次載入」且「寬度真的改變」時，才進行座標平移
+                if (!isFirstRender.current && prevCanvasWidth.current !== newWidth && students.length > 0) {
                      const deltaX = (newWidth - prevCanvasWidth.current) / 2;
                      setStudents(prev => prev.map(s => ({
                          ...s,
@@ -493,6 +495,7 @@
                 
                 setCanvasSize({ width: newWidth, height: newHeight });
                 prevCanvasWidth.current = newWidth;
+                isFirstRender.current = false; // 標記初始載入已完成
               }
             };
             window.addEventListener('resize', updateSize);
