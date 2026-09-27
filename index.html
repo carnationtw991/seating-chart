@@ -184,19 +184,23 @@
                     <button onClick={onClose} className="p-2 hover:bg-white rounded-full text-slate-400 hover:text-slate-600 transition-colors"><X size={24} /></button>
                 </div>
                 <div className="p-5 space-y-4 max-h-[65vh] overflow-y-auto bg-slate-50/50">
-                    {/* 👫 性別條件 */}
-                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-                        <h3 className="text-sm font-black text-blue-600 flex items-center gap-1.5 border-b border-slate-100 pb-2"><User size={16}/> 👫 性別條件</h3>
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked={tempConditions.avoidMixedAdjacent} onChange={(e) => setTempConditions({...tempConditions, avoidMixedAdjacent: e.target.checked})}/>
-                            <div className="flex flex-col"><span className="font-bold text-slate-700 text-sm">男女盡量不要相鄰</span><span className="text-[10px] text-slate-400">系統將盡量避免前後左右、斜角相鄰</span></div>
-                        </label>
-                        <label className="flex items-center gap-3 cursor-pointer group">
-                            <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked={tempConditions.pairMixedTogether} onChange={(e) => setTempConditions({...tempConditions, pairMixedTogether: e.target.checked})}/>
-                            <div className="flex flex-col"><span className="font-bold text-slate-700 text-sm">雙排座位：不同性別盡量坐一起</span><span className="text-[10px] text-slate-400">僅在「雙人」模式生效，優先權高於不相鄰</span></div>
-                        </label>
-                    </div>
-                    {/* 🚫 特殊限制 */}
+            {/* 👫 性別條件 */}
+            <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+                <h3 className="text-sm font-black text-blue-600 flex items-center gap-1.5 border-b border-slate-100 pb-2"><User size={16}/> 👫 性別條件</h3>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked={tempConditions.avoidMixedAdjacent} onChange={(e) => setTempConditions({...tempConditions, avoidMixedAdjacent: e.target.checked, preferMixedAdjacent: e.target.checked ? false : tempConditions.preferMixedAdjacent})}/>
+                    <div className="flex flex-col"><span className="font-bold text-slate-700 text-sm">男女盡量不要相鄰</span><span className="text-[10px] text-slate-400">系統將盡量避免前後左右、斜角相鄰</span></div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked={tempConditions.preferMixedAdjacent || false} onChange={(e) => setTempConditions({...tempConditions, preferMixedAdjacent: e.target.checked, avoidMixedAdjacent: e.target.checked ? false : tempConditions.avoidMixedAdjacent})}/>
+                    <div className="flex flex-col"><span className="font-bold text-slate-700 text-sm">男女盡量相鄰</span><span className="text-[10px] text-slate-400">系統將盡量安排不同性別座位交錯相鄰</span></div>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded cursor-pointer" checked={tempConditions.pairMixedTogether} onChange={(e) => setTempConditions({...tempConditions, pairMixedTogether: e.target.checked})}/>
+                    <div className="flex flex-col"><span className="font-bold text-slate-700 text-sm">雙排座位：不同性別盡量坐一起</span><span className="text-[10px] text-slate-400">僅在「雙人」模式生效，優先權高於其他性別設定</span></div>
+                </label>
+            </div>
+            {/* 🚫 特殊限制 */}
                     <div className="bg-white p-4 rounded-2xl shadow-sm border border-rose-200 space-y-4">
                         <h3 className="text-sm font-black text-rose-500 flex items-center gap-1.5 border-b border-rose-50 pb-2"><ShieldAlert size={16}/> 🚫 特殊限制 (絕對不能相鄰)</h3>
                         <div className="flex items-center gap-2 bg-rose-50/50 p-2 rounded-xl border border-rose-100">
@@ -442,7 +446,7 @@
           const [history, setHistory] = useState([]);
           const [historyStep, setHistoryStep] = useState(-1);
 
-          const [conditions, setConditions] = useState({ avoidMixedAdjacent: false, pairMixedTogether: false, restrictions: [] });
+          const [conditions, setConditions] = useState({ avoidMixedAdjacent: false, preferMixedAdjacent: false, pairMixedTogether: false, restrictions: [] });
           const [isConditionModalOpen, setIsConditionModalOpen] = useState(false);
 
           const [isAbilityModalOpen, setIsAbilityModalOpen] = useState(false);
@@ -655,7 +659,7 @@
           };
 
           const runOptimization = (baseStudents, currentConditions, isPairsMode, strictAbility = false) => {
-              if (!currentConditions.avoidMixedAdjacent && !currentConditions.pairMixedTogether && currentConditions.restrictions.length === 0) {
+              if (!currentConditions.avoidMixedAdjacent && !currentConditions.preferMixedAdjacent && !currentConditions.pairMixedTogether && currentConditions.restrictions.length === 0) {
                   return { students: baseStudents, violations: { absolute: 0, gender: 0 } };
               }
               const N = baseStudents.length;
@@ -685,11 +689,17 @@
                           const dist = neighbor.dist;
                           const isRestricted = currentConditions.restrictions.some(r => (r.a === st[i].label && r.b === st[j].label) || (r.a === st[j].label && r.b === st[i].label));
                           if (isRestricted) { score -= 1000; absViolations++; }
-                          if (currentConditions.avoidMixedAdjacent && st[i].gender && st[j].gender && st[i].gender !== st[j].gender) {
-                              if (!(currentConditions.pairMixedTogether && isPairsMode && dist < 100)) { score -= 10; genViolations++; }
-                          }
-                          if (isPairsMode && dist < 100 && currentConditions.pairMixedTogether && st[i].gender && st[j].gender && st[i].gender === st[j].gender) {
-                              score -= 10; genViolations++;
+                          
+                          if (st[i].gender && st[j].gender) {
+                              if (currentConditions.avoidMixedAdjacent && st[i].gender !== st[j].gender) {
+                                  if (!(currentConditions.pairMixedTogether && isPairsMode && dist < 100)) { score -= 10; genViolations++; }
+                              }
+                              if (currentConditions.preferMixedAdjacent && st[i].gender === st[j].gender) {
+                                  score -= 10; genViolations++;
+                              }
+                              if (isPairsMode && dist < 100 && currentConditions.pairMixedTogether && st[i].gender === st[j].gender) {
+                                  score -= 10; genViolations++;
+                              }
                           }
                       }
                   }
@@ -768,7 +778,7 @@
                 newStudents[studentIdx] = { ...newStudents[studentIdx], label: dataToShuffle[dataIdx].label, ability: dataToShuffle[dataIdx].ability, gender: dataToShuffle[dataIdx].gender };
             });
             
-            if (conditions.avoidMixedAdjacent || conditions.pairMixedTogether || conditions.restrictions.length > 0) {
+            if (conditions.avoidMixedAdjacent || conditions.preferMixedAdjacent || conditions.pairMixedTogether || conditions.restrictions.length > 0) {
                 const optimized = runOptimization(newStudents, conditions, currentMode === 'pairs', false);
                 commitAction(optimized.students);
                 showOptimizationResult(optimized.violations);
@@ -958,7 +968,7 @@
               }
             }
 
-            if (conditions.avoidMixedAdjacent || conditions.pairMixedTogether || conditions.restrictions.length > 0) {
+            if (conditions.avoidMixedAdjacent || conditions.preferMixedAdjacent || conditions.pairMixedTogether || conditions.restrictions.length > 0) {
                 const optimized = runOptimization(newStudents, conditions, mode === 'pairs', isFromABCD);
                 commitAction(optimized.students);
                 if (optionalList) showOptimizationResult(optimized.violations);
