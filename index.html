@@ -1180,12 +1180,17 @@
                        <Smile className="w-7 h-7 text-orange-500 drop-shadow-sm" />
                        <h1 className="text-lg font-black text-orange-800 tracking-wide drop-shadow-sm">教室座位表</h1>
                     </div>
-                    <button
-                        onClick={() => setIsToolbarOpen(!isToolbarOpen)}
-                        className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-100/80 hover:bg-orange-200 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm border border-orange-200"
-                    >
-                        {isToolbarOpen ? <><ChevronUp size={16}/> 收起工具列</> : <><ChevronDown size={16}/> 展開工具列</>}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleExportPNG} className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-100/80 hover:bg-emerald-200 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm border border-emerald-200">
+                            <ImageIcon size={16}/> 下載圖片
+                        </button>
+                        <button
+                            onClick={() => setIsToolbarOpen(!isToolbarOpen)}
+                            className="flex items-center gap-1.5 text-xs font-bold text-orange-600 bg-orange-100/80 hover:bg-orange-200 px-4 py-2 rounded-full transition-all active:scale-95 shadow-sm border border-orange-200"
+                        >
+                            {isToolbarOpen ? <><ChevronUp size={16}/> 收起工具列</> : <><ChevronDown size={16}/> 展開工具列</>}
+                        </button>
+                    </div>
                 </div>
 
                 {isToolbarOpen && (
@@ -1269,10 +1274,6 @@
                     <button onClick={() => commitAction([])} className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-b from-white to-rose-50 border border-rose-200 hover:to-rose-100 hover:border-rose-300 text-rose-700 rounded-xl shadow-sm text-xs font-bold active:scale-95 hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap"><Ban size={16} /> 重置</button>
                     <button onClick={handleClearLabels} className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-b from-white to-slate-50 border border-slate-200 hover:to-slate-100 hover:border-slate-300 text-slate-700 rounded-xl shadow-sm text-xs font-bold active:scale-95 hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap">清空號碼</button>
                 </ToolbarGroup>
-
-                <ToolbarGroup title="💾 檔案" colorClass="bg-gradient-to-br from-slate-50 to-slate-100/80 border-slate-200" titleColor="text-slate-500">
-                            <button onClick={handleExportPNG} className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-b from-emerald-50 to-emerald-100 border border-emerald-300 hover:to-emerald-200 hover:border-emerald-400 text-emerald-800 rounded-xl shadow-sm text-xs font-bold active:scale-95 hover:shadow-md hover:-translate-y-0.5 whitespace-nowrap"><ImageIcon size={16}/>下載圖片</button>
-                        </ToolbarGroup>
                     </div>
                 )}
               </div>
